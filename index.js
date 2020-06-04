@@ -1,18 +1,12 @@
-const webSocketsServerPort = process.env.PORT || 3000;
-const webSocketServer = require('websocket').server;
+const webSocketsServerPort = process.env.PORT || 5000;
+const express = require('express')
+const app = express()
 const http = require('http');
 
-// Spinning the http server and the websocket server.
-const server = http.createServer();
-server.listen(webSocketsServerPort);
-console.log(`webserver listening on port ${webSocketsServerPort}`);
+const server = http.Server(app)
+    .listen(webSocketsServerPort,()=>{console.log(`webserver listening on port ${webSocketsServerPort}`)})
 
-const wsServer = new webSocketServer({
-  httpServer: server
-});
-
-// I'm maintaining all active connections in this object
-const clients = {};
+const io = require('socket.io')(server)
 
 // This code generates unique userid for everyuser.
 const getUniqueID = () => {
@@ -20,25 +14,16 @@ const getUniqueID = () => {
   return s4() + s4() + '-' + s4();
 };
 
-wsServer.on('request', function(request) {
+io.on('connection', socket => {
   var userID = getUniqueID();
-  console.log((new Date()) + ' Recieved a new connection from origin ' + request.origin + '.');
+  console.log((new Date()) + ' Recieved a new connection from origin ' + socket.client + '.');
 
-  // You can rewrite this part of the code to accept only the requests from allowed origin
-  const connection = request.accept(null, request.origin);
-  clients[userID] = connection;
-  console.log('connected: ' + userID + ' in ' + Object.getOwnPropertyNames(clients));
-
-  connection.on('message', function(message){
-      if(message.type === 'utf8'){
-        console.log('Recieved message: ', message.utf8Data);
-
-        // broadcasting messageto all connected clients
-        for(key in clients)
-        {
-            clients[key].sendUTF(message.utf8Data);
-            console.log('sent Message to:', clients[key])
-        }
-      }
+  console.log('success connect!')
+  //監聽透過 connection 傳進來的事件
+  socket.on('getMessage', message => {
+      //回傳 message 給發送訊息的 Client
+      socket.emit('getMessage', message)
   })
-});
+
+  socket.on('disconnect', () => console.log(socket.client + 'left'));
+})
